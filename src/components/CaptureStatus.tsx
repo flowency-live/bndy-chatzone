@@ -5,6 +5,22 @@ export interface PublicCaptureStatus {
   message: string
   receivedAt?: string
   updatedAt?: string
+  result?: {
+    artist?: {
+      name: string
+      action?: string
+      id?: string
+    }
+    event?: {
+      id: string
+      date: string
+      time: string
+      venue: string
+      action?: 'created' | 'existing' | string
+      venueAction?: string
+      url: string
+    }
+  }
 }
 
 interface CaptureStatusProps {
@@ -21,6 +37,18 @@ const STATUS_LABELS: Record<string, string> = {
   ignored: 'Not recognised as a gig',
 }
 
+function formatDate(date: string): string {
+  const parsed = new Date(`${date}T12:00:00Z`)
+  if (Number.isNaN(parsed.getTime())) return date
+  return new Intl.DateTimeFormat('en-GB', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    timeZone: 'UTC',
+  }).format(parsed)
+}
+
 export function CaptureStatus({ capture, isPolling }: CaptureStatusProps) {
   const label = STATUS_LABELS[capture.state] || capture.state
   const statusDotClasses = [
@@ -28,6 +56,8 @@ export function CaptureStatus({ capture, isPolling }: CaptureStatusProps) {
     capture.state,
     isPolling ? 'pulse' : '',
   ].filter(Boolean).join(' ')
+  const event = capture.result?.event
+  const artist = capture.result?.artist
 
   return (
     <div className="panel">
@@ -38,7 +68,29 @@ export function CaptureStatus({ capture, isPolling }: CaptureStatusProps) {
         </div>
         <code className="signal-id">{capture.captureId}</code>
       </div>
-      <p className="interpretation-text">{capture.message}</p>
+
+      {event ? (
+        <div className="capture-result">
+          {artist?.name && <h3 style={{ margin: '0 0 0.5rem' }}>{artist.name}</h3>}
+          <p className="interpretation-text" style={{ marginBottom: '0.35rem' }}>
+            <strong>{event.venue}</strong>
+          </p>
+          <p className="interpretation-text" style={{ marginTop: 0 }}>
+            {formatDate(event.date)} · {event.time}
+          </p>
+          <a
+            href={event.url}
+            target="_blank"
+            rel="noreferrer"
+            className="button button-primary"
+            style={{ display: 'inline-block', marginTop: '0.5rem' }}
+          >
+            View gig on bndy.live
+          </a>
+        </div>
+      ) : (
+        <p className="interpretation-text">{capture.message}</p>
+      )}
     </div>
   )
 }
