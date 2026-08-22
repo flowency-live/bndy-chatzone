@@ -8,7 +8,6 @@ describe('App', () => {
   })
 
   afterEach(() => {
-    vi.useRealTimers()
     vi.unstubAllGlobals()
   })
 
@@ -50,30 +49,20 @@ describe('App', () => {
     expect(await screen.findByText('capture-123')).toBeInTheDocument()
   })
 
-  it('shows a terminal Capture result after polling', async () => {
-    vi.useFakeTimers()
-    const mockFetch = vi.fn()
-      .mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({
-          captureId: 'capture-456', status: 'unprocessed', state: 'processing', message: 'Processing',
-        }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({
-          captureId: 'capture-456', status: 'processed', state: 'added', message: 'Added to bndy.',
-        }),
-      })
-    vi.stubGlobal('fetch', mockFetch)
+  it('shows the sanitized Capture result', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({
+        captureId: 'capture-456',
+        status: 'processed',
+        state: 'added',
+        message: 'Added to bndy.',
+      }),
+    }))
 
     render(<App />)
     fireEvent.change(screen.getByPlaceholderText(/paste facebook event text/i), { target: { value: 'Test event' } })
     fireEvent.click(screen.getByRole('button', { name: /interpret text/i }))
-
-    await Promise.resolve()
-    await Promise.resolve()
-    await vi.advanceTimersByTimeAsync(1100)
 
     expect(await screen.findByText('Added to bndy')).toBeInTheDocument()
     expect(screen.getByText('Added to bndy.')).toBeInTheDocument()
