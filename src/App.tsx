@@ -1,97 +1,114 @@
 import { useState } from 'react'
 import { SignalDropzone, type SignalSubmission } from './components/SignalDropzone'
-import { SignalStatus, type Signal, type Interpretation } from './components/SignalStatus'
-import { ClaimsList, type Claim } from './components/ClaimsList'
+import { CaptureStatus, type PublicCaptureStatus } from './components/CaptureStatus'
 
-const API_URL = 'https://9tq7w39hb2.execute-api.eu-west-2.amazonaws.com/dev'
+const CAPTURE_API_URL = 'https://capture.bndy.co.uk'
 
-interface SignalResponse {
-  signal: Signal
-  interpretation?: Interpretation
-  claims: Claim[]
+function base64ToBlob(base64: string, mimeType: string): Blob {
+  const binary = atob(base64)
+  const bytes = new Uint8Array(binary.length)
+  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i)
+  return new Blob([bytes], { type: mimeType })
+}
+
+async function jsonResponse(response: Response): Promise<any> {
+  const body = await response.json().catch(() => ({}))
+  if (!response.ok) throw new Error(body.message || body.error || 'Request failed')
+  return body
 }
 
 function App() {
-  const [currentSignal, setCurrentSignal] = useState<SignalResponse | null>(null)
+  const [capture, setCapture] = useState<PublicCaptureStatus | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isPolling, setIsPolling] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const handleSubmit = async (submission: SignalSubmission) => {
-    setIsSubmitting(true)
-    setError(null)
-    setCurrentSignal(null)
-
-    try {
-      let body: Record<string, unknown>
-
-      if (submission.type === 'text') {
-        body = {
-          signalType: 'text_paste',
-          content: submission.content,
-        }
-      } else {
-        body = {
-          signalType: 'image',
-          base64Content: submission.base64Content,
-          fileName: submission.fileName,
-          mimeType: submission.mimeType,
-        }
-      }
-
-      const response = await fetch(`${API_URL}/signals`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      })
-
-      if (!response.ok) {
-        const errData = await response.json().catch(() => ({}))
-        throw new Error(errData.error || 'Failed to create signal')
-      }
-
-      const { signalId } = await response.json()
-      setIsPolling(true)
-      pollForResult(signalId)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error')
-      setIsSubmitting(false)
-    }
-  }
-
-  const pollForResult = async (signalId: string) => {
-    const maxAttempts = 60
+  const pollForResult = (captureId: string) => {
+    setIsPolling(true)
     let attempts = 0
 
     const poll = async () => {
       try {
-        const response = await fetch(`${API_URL}/signals/${signalId}`)
-        const data: SignalResponse = await response.json()
+        const response = await fetch(`${CAPTURE_API_URL}/v1/public/captures/${captureId}`)
+        const data = await jsonResponse(response) as PublicCaptureStatus
+        setCapture(data)
 
-        setCurrentSignal(data)
-
-        if (data.signal.status === 'pending_review' || data.signal.status === 'failed') {
+        if (['added', 'already_exists', 'processed', 'could_not_resolve', 'ignored'].includes(data.state)) {
           setIsPolling(false)
           setIsSubmitting(false)
           return
         }
 
-        attempts++
-        if (attempts < maxAttempts) {
+        attempts += 1
+        if (attempts < 90) {
           setTimeout(poll, 2000)
         } else {
           setIsPolling(false)
           setIsSubmitting(false)
-          setError('Timeout waiting for interpretation')
+          setError('BNDY is still processing this submission. Please try again later.')
         }
       } catch (err) {
         setIsPolling(false)
         setIsSubmitting(false)
-        setError(err instanceof Error ? err.message : 'Polling failed')
+        setError(err instanceof Error ? err.message : 'Could not check submission status')
       }
     }
 
-    poll()
+    setTimeout(poll, 1000)
+  }
+
+  const createCapture = async (body: Record<string, unknown>): Promise<PublicCaptureStatus> => {
+    const response = await fetch(`${CAPTURE_API_URL}/v1/public/captures`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+    return jsonResponse(response)
+  }
+
+  const handleSubmit = async (submission: SignalSubmission) => {
+    setIsSubmitting(true)
+    setError(null)
+    setCapture(null)
+
+    try {
+      let created: PublicCaptureStatus
+
+      if (submission.type === 'text') {
+        created = await createCapture({ sharedText: submission.content })
+      } else {
+        if (!submission.base64Content || !submission.mimeType || !submission.fileName) {
+          throw new Error('Poster image is incomplete')
+        }
+
+        const blob = base64ToBlob(submission.base64Content, submission.mimeType)
+        const uploadResponse = await fetch(`${CAPTURE_API_URL}/v1/public/uploads/image`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            mimeType: submission.mimeType,
+            fileName: submission.fileName,
+            size: blob.size,
+          }),
+        })
+        const upload = await jsonResponse(uploadResponse)
+
+        const form = new FormData()
+        Object.entries(upload.fields as Record<string, string>).forEach(([key, value]) => form.append(key, value))
+        form.append('file', blob, submission.fileName)
+
+        const s3Response = await fetch(upload.uploadUrl, { method: 'POST', body: form })
+        if (!s3Response.ok) throw new Error('Poster upload failed')
+
+        created = await createCapture({ media: upload.media })
+      }
+
+      setCapture(created)
+      pollForResult(created.captureId)
+    } catch (err) {
+      setIsSubmitting(false)
+      setError(err instanceof Error ? err.message : 'Submission failed')
+    }
   }
 
   return (
@@ -100,16 +117,13 @@ function App() {
         <div className="container">
           <h1 className="tight">Signal Dropzone</h1>
           <p>
-            Drop a gig poster or paste event text, and bndy will interpret what it means for the live music world.
+            Drop a gig poster or paste event text, and bndy will add the event to the live music map.
           </p>
         </div>
       </header>
 
       <main className="container">
-        <SignalDropzone
-          onSubmit={handleSubmit}
-          isSubmitting={isSubmitting}
-        />
+        <SignalDropzone onSubmit={handleSubmit} isSubmitting={isSubmitting} />
 
         {error && (
           <div className="error-message" style={{ marginTop: '1.5rem' }}>
@@ -117,21 +131,9 @@ function App() {
           </div>
         )}
 
-        {currentSignal && (
-          <div style={{ marginTop: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-            <SignalStatus
-              signal={currentSignal.signal}
-              interpretation={currentSignal.interpretation}
-              isPolling={isPolling}
-            />
-
-            {currentSignal.claims.length > 0 && (
-              <ClaimsList
-                claims={currentSignal.claims}
-                uncertainties={currentSignal.interpretation?.uncertainties}
-                signalId={currentSignal.signal.signalId}
-              />
-            )}
+        {capture && (
+          <div style={{ marginTop: '1.5rem' }}>
+            <CaptureStatus capture={capture} isPolling={isPolling} />
           </div>
         )}
       </main>
