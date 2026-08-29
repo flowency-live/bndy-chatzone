@@ -44,16 +44,13 @@ describe('App', () => {
     })
     fireEvent.click(screen.getByRole('button', { name: /send to bndy/i }))
 
-    await waitFor(() => {
-      expect(mockFetch).toHaveBeenCalledWith(
-        'https://capture.bndy.co.uk/v1/public/captures',
-        expect.objectContaining({
-          method: 'POST',
-          body: JSON.stringify({ sharedText: 'Pistachio Nuts live at Briton Ferry Workies' }),
-        }),
-      )
-    })
     expect(await screen.findByRole('heading', { name: 'It’s on bndy' })).toBeInTheDocument()
+    const captureCall = mockFetch.mock.calls.find(([url]) => url.endsWith('/v1/public/captures'))
+    if (!captureCall) throw new Error('Capture request was not made')
+    const [, options] = captureCall
+    const body = JSON.parse(options.body)
+    expect(body.sharedText).toBe('Pistachio Nuts live at Briton Ferry Workies')
+    expect(body.clientSubmissionId).toMatch(/^[A-Za-z0-9._:-]{8,128}$/)
   })
 
   it('sends an image and supporting text together', async () => {
@@ -88,13 +85,12 @@ describe('App', () => {
     fireEvent.click(screen.getByRole('button', { name: /send to bndy/i }))
 
     await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(3))
-    expect(mockFetch).toHaveBeenNthCalledWith(
-      3,
-      'https://capture.bndy.co.uk/v1/public/captures',
-      expect.objectContaining({
-        body: JSON.stringify({ sharedText: 'Doors are at 7.30pm', media }),
-      }),
-    )
+    const [, options] = mockFetch.mock.calls[2]
+    expect(JSON.parse(options.body)).toEqual(expect.objectContaining({
+      clientSubmissionId: expect.any(String),
+      sharedText: 'Doors are at 7.30pm',
+      media,
+    }))
   })
 
   it('shows a useful API error without clearing the form', async () => {
@@ -109,6 +105,29 @@ describe('App', () => {
 
     expect(await screen.findByText(/too many submissions/i)).toBeInTheDocument()
     expect(textarea).toHaveValue('Test event')
+  })
+
+  it('reuses the idempotency key when a failed request is retried', async () => {
+    const mockFetch = vi.fn()
+      .mockImplementationOnce(() => apiResponse({ message: 'Temporary failure' }, false))
+      .mockImplementationOnce(() => apiResponse({
+        captureId: 'capture-retry',
+        status: 'processed',
+        state: 'added',
+        message: 'Added to bndy.',
+      }))
+    vi.stubGlobal('fetch', mockFetch)
+    render(<App />)
+    fireEvent.change(screen.getByPlaceholderText(/paste a facebook link/i), { target: { value: 'Test event' } })
+
+    fireEvent.click(screen.getByRole('button', { name: /send to bndy/i }))
+    await screen.findByText('Temporary failure')
+    fireEvent.click(screen.getByRole('button', { name: /send to bndy/i }))
+    await screen.findByRole('heading', { name: 'It’s on bndy' })
+
+    const firstBody = JSON.parse(mockFetch.mock.calls[0][1].body)
+    const secondBody = JSON.parse(mockFetch.mock.calls[1][1].body)
+    expect(secondBody.clientSubmissionId).toBe(firstBody.clientSubmissionId)
   })
 
   it('resumes an active submission after refresh', async () => {

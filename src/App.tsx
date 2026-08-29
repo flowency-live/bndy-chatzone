@@ -18,6 +18,11 @@ interface StoredCapture {
   startedAt: number
 }
 
+function newClientSubmissionId(): string {
+  if (typeof crypto.randomUUID === 'function') return crypto.randomUUID()
+  return `web-${Date.now()}-${Math.random().toString(36).slice(2)}`
+}
+
 function readStoredCapture(): StoredCapture | null {
   const saved = window.sessionStorage.getItem(ACTIVE_CAPTURE_KEY)
   if (!saved) return null
@@ -68,6 +73,7 @@ function App() {
   const [error, setError] = useState<string | null>(null)
   const timerRef = useRef<number | null>(null)
   const activeCaptureRef = useRef<StoredCapture | null>(null)
+  const pendingSubmissionIdRef = useRef<string | null>(null)
 
   const clearTimer = useCallback(() => {
     if (timerRef.current !== null) {
@@ -163,6 +169,8 @@ function App() {
     setIsSubmitting(true)
     setError(null)
     setConnectionNotice(null)
+    const clientSubmissionId = pendingSubmissionIdRef.current ?? newClientSubmissionId()
+    pendingSubmissionIdRef.current = clientSubmissionId
 
     try {
       let media: Record<string, unknown> | undefined
@@ -194,9 +202,11 @@ function App() {
       }
 
       const created = await createCapture({
+        clientSubmissionId,
         ...(submission.content ? { sharedText: submission.content } : {}),
         ...(media ? { media } : {}),
       })
+      pendingSubmissionIdRef.current = null
       setCapture(created)
 
       if (TERMINAL_STATES.has(created.state)) {
@@ -226,6 +236,7 @@ function App() {
   const handleReset = () => {
     clearTimer()
     forgetActiveCapture()
+    pendingSubmissionIdRef.current = null
     setCapture(null)
     setIsSubmitting(false)
     setIsPolling(false)
