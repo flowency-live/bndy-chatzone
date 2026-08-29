@@ -51,4 +51,16 @@ describe('CaptureStatus', () => {
     await user.click(screen.getByRole('button', { name: /check again/i }))
     expect(onCheckAgain).toHaveBeenCalledOnce()
   })
+
+  it('shows a truthful terminal review state', () => {
+    render(<CaptureStatus capture={{
+      captureId: 'capture-review',
+      status: 'failed',
+      state: 'needs_review',
+      message: 'The artist identity needs a human check.',
+    }} isPolling={false} />)
+
+    expect(screen.getByText('This one needs a human check')).toBeInTheDocument()
+    expect(screen.getByText('The artist identity needs a human check.')).toBeInTheDocument()
+  })
 })

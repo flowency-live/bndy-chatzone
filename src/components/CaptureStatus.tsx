@@ -1,7 +1,7 @@
 export interface PublicCaptureStatus {
   captureId: string
   status: string
-  state: 'processing' | 'added' | 'already_exists' | 'processed' | 'could_not_resolve' | 'ignored' | string
+  state: 'processing' | 'added' | 'already_exists' | 'processed' | 'needs_review' | 'could_not_resolve' | 'ignored' | string
   message: string
   receivedAt?: string
   updatedAt?: string
@@ -63,6 +63,12 @@ const STATUS_COPY: Record<string, StatusCopy> = {
     title: 'All checked',
     detail: 'bndy has finished checking your submission.',
     tone: 'neutral',
+  },
+  needs_review: {
+    eyebrow: 'KEPT FOR REVIEW',
+    title: 'This one needs a human check',
+    detail: 'bndy found useful gig details, but will not guess where the evidence is uncertain.',
+    tone: 'attention',
   },
   could_not_resolve: {
     eyebrow: 'NEEDS MORE DETAIL',

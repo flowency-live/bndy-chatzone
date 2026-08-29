@@ -9,6 +9,7 @@ const TERMINAL_STATES = new Set([
   'added',
   'already_exists',
   'processed',
+  'needs_review',
   'could_not_resolve',
   'ignored',
 ])
