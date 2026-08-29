@@ -1,297 +1,105 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, it, expect, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { SignalDropzone } from './SignalDropzone'
 
 describe('SignalDropzone', () => {
-  const mockOnSubmit = vi.fn()
+  const onSubmit = vi.fn()
 
-  beforeEach(() => {
-    mockOnSubmit.mockClear()
+  beforeEach(() => onSubmit.mockClear())
+
+  it('presents one combined intake with a disabled initial action', () => {
+    render(<SignalDropzone onSubmit={onSubmit} isSubmitting={false} />)
+
+    expect(screen.getByText(/add a poster or screenshot/i)).toBeInTheDocument()
+    expect(screen.getByPlaceholderText(/paste a facebook link/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /send to bndy/i })).toBeDisabled()
   })
 
-  describe('rendering', () => {
-    it('renders the dropzone area', () => {
-      render(<SignalDropzone onSubmit={mockOnSubmit} isSubmitting={false} />)
+  it('submits trimmed event text', async () => {
+    const user = userEvent.setup()
+    render(<SignalDropzone onSubmit={onSubmit} isSubmitting={false} />)
 
-      expect(screen.getByText(/drop or paste a gig poster/i)).toBeInTheDocument()
-    })
+    await user.type(screen.getByPlaceholderText(/paste a facebook link/i), '  Jazz at The Blue Note  ')
+    await user.click(screen.getByRole('button', { name: /send to bndy/i }))
 
-    it('renders the text input area', () => {
-      render(<SignalDropzone onSubmit={mockOnSubmit} isSubmitting={false} />)
-
-      expect(screen.getByPlaceholderText(/paste facebook event text/i)).toBeInTheDocument()
-    })
-
-    it('renders example buttons', () => {
-      render(<SignalDropzone onSubmit={mockOnSubmit} isSubmitting={false} />)
-
-      expect(screen.getByText(/example 1/i)).toBeInTheDocument()
-      expect(screen.getByText(/example 2/i)).toBeInTheDocument()
-    })
-
-    it('renders the interpret text button', () => {
-      render(<SignalDropzone onSubmit={mockOnSubmit} isSubmitting={false} />)
-
-      expect(screen.getByRole('button', { name: /interpret text/i })).toBeInTheDocument()
-    })
+    expect(onSubmit).toHaveBeenCalledWith({ content: 'Jazz at The Blue Note' })
   })
 
-  describe('text submission', () => {
-    it('allows typing in the textarea', async () => {
-      const user = userEvent.setup()
-      render(<SignalDropzone onSubmit={mockOnSubmit} isSubmitting={false} />)
+  it('keeps supporting text when an image is added and submits both', async () => {
+    const user = userEvent.setup()
+    render(<SignalDropzone onSubmit={onSubmit} isSubmitting={false} />)
 
-      const textarea = screen.getByPlaceholderText(/paste facebook event text/i)
-      await user.type(textarea, 'Test event text')
+    const textarea = screen.getByPlaceholderText(/paste a facebook link/i)
+    await user.type(textarea, 'Doors at 8pm')
+    const file = new File(['image'], 'poster.png', { type: 'image/png' })
+    fireEvent.drop(screen.getByTestId('dropzone'), { dataTransfer: { files: [file] } })
 
-      expect(textarea).toHaveValue('Test event text')
-    })
+    await screen.findByRole('img', { name: /selected gig poster preview/i })
+    expect(textarea).toHaveValue('Doors at 8pm')
+    await user.click(screen.getByRole('button', { name: /send to bndy/i }))
 
-    it('shows character count', async () => {
-      const user = userEvent.setup()
-      render(<SignalDropzone onSubmit={mockOnSubmit} isSubmitting={false} />)
-
-      const textarea = screen.getByPlaceholderText(/paste facebook event text/i)
-      await user.type(textarea, 'Hello')
-
-      expect(screen.getByText(/5 characters/i)).toBeInTheDocument()
-    })
-
-    it('submits text when form is submitted', async () => {
-      const user = userEvent.setup()
-      render(<SignalDropzone onSubmit={mockOnSubmit} isSubmitting={false} />)
-
-      const textarea = screen.getByPlaceholderText(/paste facebook event text/i)
-      await user.type(textarea, 'Jazz Night at The Blue Note')
-
-      const submitButton = screen.getByRole('button', { name: /interpret text/i })
-      await user.click(submitButton)
-
-      expect(mockOnSubmit).toHaveBeenCalledWith({
-        type: 'text',
-        content: 'Jazz Night at The Blue Note',
-      })
-    })
-
-    it('does not submit empty text', async () => {
-      const user = userEvent.setup()
-      render(<SignalDropzone onSubmit={mockOnSubmit} isSubmitting={false} />)
-
-      const submitButton = screen.getByRole('button', { name: /interpret text/i })
-      await user.click(submitButton)
-
-      expect(mockOnSubmit).not.toHaveBeenCalled()
-    })
-
-    it('does not submit whitespace-only text', async () => {
-      const user = userEvent.setup()
-      render(<SignalDropzone onSubmit={mockOnSubmit} isSubmitting={false} />)
-
-      const textarea = screen.getByPlaceholderText(/paste facebook event text/i)
-      await user.type(textarea, '   ')
-
-      const submitButton = screen.getByRole('button', { name: /interpret text/i })
-      await user.click(submitButton)
-
-      expect(mockOnSubmit).not.toHaveBeenCalled()
-    })
-
-    it('disables submit button when submitting', () => {
-      render(<SignalDropzone onSubmit={mockOnSubmit} isSubmitting={true} />)
-
-      const submitButton = screen.getByRole('button', { name: /interpreting/i })
-      expect(submitButton).toBeDisabled()
-    })
-
-    it('disables textarea when submitting', () => {
-      render(<SignalDropzone onSubmit={mockOnSubmit} isSubmitting={true} />)
-
-      const textarea = screen.getByPlaceholderText(/paste facebook event text/i)
-      expect(textarea).toBeDisabled()
-    })
+    expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({
+      content: 'Doors at 8pm',
+      fileName: 'poster.png',
+      mimeType: 'image/png',
+      base64Content: expect.any(String),
+    }))
   })
 
-  describe('example buttons', () => {
-    it('fills textarea when example button is clicked', async () => {
-      const user = userEvent.setup()
-      render(<SignalDropzone onSubmit={mockOnSubmit} isSubmitting={false} />)
+  it('removes an image without clearing event text', async () => {
+    const user = userEvent.setup()
+    render(<SignalDropzone onSubmit={onSubmit} isSubmitting={false} />)
 
-      const exampleButton = screen.getByText(/example 1/i)
-      await user.click(exampleButton)
-
-      const textarea = screen.getByPlaceholderText(/paste facebook event text/i)
-      expect(textarea).toHaveValue('STINGRAY LIVE AT THE RIGGER THURSDAY 15TH MAY 8PM')
+    const textarea = screen.getByPlaceholderText(/paste a facebook link/i)
+    await user.type(textarea, 'Keep this text')
+    fireEvent.drop(screen.getByTestId('dropzone'), {
+      dataTransfer: { files: [new File(['image'], 'poster.png', { type: 'image/png' })] },
     })
+    await user.click(await screen.findByRole('button', { name: /remove/i }))
 
-    it('disables example buttons when submitting', () => {
-      render(<SignalDropzone onSubmit={mockOnSubmit} isSubmitting={true} />)
-
-      const exampleButton = screen.getByText(/example 1/i)
-      expect(exampleButton).toBeDisabled()
-    })
+    expect(screen.queryByRole('img', { name: /selected gig poster preview/i })).not.toBeInTheDocument()
+    expect(textarea).toHaveValue('Keep this text')
   })
 
-  describe('file upload', () => {
-    it('renders choose file button', () => {
-      render(<SignalDropzone onSubmit={mockOnSubmit} isSubmitting={false} />)
+  it('rejects unsupported files with a visible explanation', async () => {
+    render(<SignalDropzone onSubmit={onSubmit} isSubmitting={false} />)
 
-      expect(screen.getByRole('button', { name: /choose file/i })).toBeInTheDocument()
+    fireEvent.drop(screen.getByTestId('dropzone'), {
+      dataTransfer: { files: [new File(['not an image'], 'line-up.pdf', { type: 'application/pdf' })] },
     })
 
-    it('accepts dropped image files', async () => {
-      render(<SignalDropzone onSubmit={mockOnSubmit} isSubmitting={false} />)
-
-      const dropzone = screen.getByTestId('dropzone')
-
-      const file = new File(['test image'], 'poster.png', { type: 'image/png' })
-      const dataTransfer = {
-        files: [file],
-        items: [{ kind: 'file', type: 'image/png', getAsFile: () => file }],
-        types: ['Files'],
-      }
-
-      fireEvent.drop(dropzone, { dataTransfer })
-
-      await waitFor(() => {
-        expect(screen.getByText(/poster\.png/i)).toBeInTheDocument()
-      })
-    })
-
-    it('shows image preview after file drop', async () => {
-      render(<SignalDropzone onSubmit={mockOnSubmit} isSubmitting={false} />)
-
-      const dropzone = screen.getByTestId('dropzone')
-
-      // Create a minimal valid PNG file
-      const base64 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
-      const blob = await fetch(base64).then(r => r.blob())
-      const file = new File([blob], 'poster.png', { type: 'image/png' })
-
-      const dataTransfer = {
-        files: [file],
-        items: [{ kind: 'file', type: 'image/png', getAsFile: () => file }],
-        types: ['Files'],
-      }
-
-      fireEvent.drop(dropzone, { dataTransfer })
-
-      await waitFor(() => {
-        expect(screen.getByRole('img', { name: /preview/i })).toBeInTheDocument()
-      })
-    })
-
-    it('shows remove button after file is selected', async () => {
-      render(<SignalDropzone onSubmit={mockOnSubmit} isSubmitting={false} />)
-
-      const dropzone = screen.getByTestId('dropzone')
-
-      const base64 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
-      const blob = await fetch(base64).then(r => r.blob())
-      const file = new File([blob], 'poster.png', { type: 'image/png' })
-
-      const dataTransfer = {
-        files: [file],
-        items: [{ kind: 'file', type: 'image/png', getAsFile: () => file }],
-        types: ['Files'],
-      }
-
-      fireEvent.drop(dropzone, { dataTransfer })
-
-      await waitFor(() => {
-        expect(screen.getByRole('button', { name: /remove/i })).toBeInTheDocument()
-      })
-    })
-
-    it('clears image when remove is clicked', async () => {
-      const user = userEvent.setup()
-      render(<SignalDropzone onSubmit={mockOnSubmit} isSubmitting={false} />)
-
-      const dropzone = screen.getByTestId('dropzone')
-
-      const base64 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
-      const blob = await fetch(base64).then(r => r.blob())
-      const file = new File([blob], 'poster.png', { type: 'image/png' })
-
-      const dataTransfer = {
-        files: [file],
-        items: [{ kind: 'file', type: 'image/png', getAsFile: () => file }],
-        types: ['Files'],
-      }
-
-      fireEvent.drop(dropzone, { dataTransfer })
-
-      await waitFor(() => {
-        expect(screen.getByRole('button', { name: /remove/i })).toBeInTheDocument()
-      })
-
-      const removeButton = screen.getByRole('button', { name: /remove/i })
-      await user.click(removeButton)
-
-      expect(screen.queryByRole('img', { name: /preview/i })).not.toBeInTheDocument()
-      expect(screen.getByText(/drop or paste a gig poster/i)).toBeInTheDocument()
-    })
-
-    it('submits image when interpret poster button is clicked', async () => {
-      const user = userEvent.setup()
-      render(<SignalDropzone onSubmit={mockOnSubmit} isSubmitting={false} />)
-
-      const dropzone = screen.getByTestId('dropzone')
-
-      const base64 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
-      const blob = await fetch(base64).then(r => r.blob())
-      const file = new File([blob], 'poster.png', { type: 'image/png' })
-
-      const dataTransfer = {
-        files: [file],
-        items: [{ kind: 'file', type: 'image/png', getAsFile: () => file }],
-        types: ['Files'],
-      }
-
-      fireEvent.drop(dropzone, { dataTransfer })
-
-      await waitFor(() => {
-        expect(screen.getByRole('button', { name: /interpret poster/i })).toBeInTheDocument()
-      })
-
-      const submitButton = screen.getByRole('button', { name: /interpret poster/i })
-      await user.click(submitButton)
-
-      expect(mockOnSubmit).toHaveBeenCalledWith(
-        expect.objectContaining({
-          type: 'image',
-          fileName: 'poster.png',
-          mimeType: 'image/png',
-        })
-      )
-    })
+    expect(await screen.findByRole('alert')).toHaveTextContent(/jpg, png, webp or gif/i)
+    expect(onSubmit).not.toHaveBeenCalled()
   })
 
-  describe('drag and drop states', () => {
-    it('shows drag over state when dragging', () => {
-      render(<SignalDropzone onSubmit={mockOnSubmit} isSubmitting={false} />)
+  it('rejects images over the real 5 MB API limit', async () => {
+    render(<SignalDropzone onSubmit={onSubmit} isSubmitting={false} />)
+    const file = new File([new Uint8Array(5 * 1024 * 1024 + 1)], 'huge.jpg', { type: 'image/jpeg' })
 
-      const dropzone = screen.getByTestId('dropzone')
+    fireEvent.drop(screen.getByTestId('dropzone'), { dataTransfer: { files: [file] } })
 
-      fireEvent.dragOver(dropzone, {
-        dataTransfer: { types: ['Files'] },
-      })
+    expect(await screen.findByRole('alert')).toHaveTextContent(/over 5 mb/i)
+    expect(screen.getByRole('button', { name: /send to bndy/i })).toBeDisabled()
+  })
 
-      expect(dropzone).toHaveClass('drag-over')
-    })
+  it('accepts an image exactly at the 5 MB limit', async () => {
+    render(<SignalDropzone onSubmit={onSubmit} isSubmitting={false} />)
+    const file = new File([new Uint8Array(5 * 1024 * 1024)], 'limit.webp', { type: 'image/webp' })
 
-    it('removes drag over state when drag leaves', () => {
-      render(<SignalDropzone onSubmit={mockOnSubmit} isSubmitting={false} />)
+    fireEvent.drop(screen.getByTestId('dropzone'), { dataTransfer: { files: [file] } })
 
-      const dropzone = screen.getByTestId('dropzone')
+    await waitFor(() => expect(screen.getByRole('img', { name: /selected gig poster preview/i })).toBeInTheDocument())
+    expect(screen.getByRole('button', { name: /send to bndy/i })).toBeEnabled()
+  })
 
-      fireEvent.dragOver(dropzone, {
-        dataTransfer: { types: ['Files'] },
-      })
+  it('shows and clears the drag-over state', () => {
+    render(<SignalDropzone onSubmit={onSubmit} isSubmitting={false} />)
+    const dropzone = screen.getByTestId('dropzone')
 
-      fireEvent.dragLeave(dropzone)
-
-      expect(dropzone).not.toHaveClass('drag-over')
-    })
+    fireEvent.dragOver(dropzone)
+    expect(dropzone).toHaveClass('drag-over')
+    fireEvent.dragLeave(dropzone)
+    expect(dropzone).not.toHaveClass('drag-over')
   })
 })

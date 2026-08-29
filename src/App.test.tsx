@@ -2,39 +2,47 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
 
+function apiResponse(body: Record<string, unknown>, ok = true) {
+  return Promise.resolve({
+    ok,
+    json: () => Promise.resolve(body),
+  })
+}
+
 describe('App', () => {
   beforeEach(() => {
+    window.sessionStorage.clear()
     vi.stubGlobal('fetch', vi.fn())
   })
 
   afterEach(() => {
+    window.sessionStorage.clear()
     vi.unstubAllGlobals()
   })
 
-  it('renders the public Dropzone', () => {
+  it('renders the Send to bndy experience', () => {
     render(<App />)
-    expect(screen.getByText('Signal Dropzone')).toBeInTheDocument()
-    expect(screen.getByText(/add the event to the live music map/i)).toBeInTheDocument()
+
+    expect(screen.getByRole('heading', { name: 'Know about a gig?' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Send a gig to bndy' })).toBeInTheDocument()
+    expect(screen.getByText(/poster, screenshot, link or event message/i)).toBeInTheDocument()
     expect(screen.getByTestId('dropzone')).toBeInTheDocument()
   })
 
-  it('submits pasted text to the public Capture API', async () => {
-    const mockFetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve({
-        captureId: 'capture-123',
-        status: 'unprocessed',
-        state: 'processing',
-        message: 'BNDY is processing your submission.',
-      }),
-    })
+  it('submits event text to the public Capture API', async () => {
+    const mockFetch = vi.fn().mockImplementation(() => apiResponse({
+      captureId: 'capture-123',
+      status: 'processed',
+      state: 'added',
+      message: 'Added to bndy.',
+    }))
     vi.stubGlobal('fetch', mockFetch)
 
     render(<App />)
-    fireEvent.change(screen.getByPlaceholderText(/paste facebook event text/i), {
+    fireEvent.change(screen.getByPlaceholderText(/paste a facebook link/i), {
       target: { value: 'Pistachio Nuts live at Briton Ferry Workies' },
     })
-    fireEvent.click(screen.getByRole('button', { name: /interpret text/i }))
+    fireEvent.click(screen.getByRole('button', { name: /send to bndy/i }))
 
     await waitFor(() => {
       expect(mockFetch).toHaveBeenCalledWith(
@@ -42,42 +50,84 @@ describe('App', () => {
         expect.objectContaining({
           method: 'POST',
           body: JSON.stringify({ sharedText: 'Pistachio Nuts live at Briton Ferry Workies' }),
-        })
+        }),
       )
     })
-
-    expect(await screen.findByText('capture-123')).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'It’s on bndy' })).toBeInTheDocument()
   })
 
-  it('shows the sanitized Capture result', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve({
-        captureId: 'capture-456',
+  it('sends an image and supporting text together', async () => {
+    const media = {
+      type: 'image',
+      bucket: 'capture-images',
+      key: 'captures/public/poster.png',
+      mimeType: 'image/png',
+    }
+    const mockFetch = vi.fn()
+      .mockImplementationOnce(() => apiResponse({
+        uploadUrl: 'https://uploads.example.test',
+        fields: { key: 'captures/public/poster.png' },
+        media,
+      }))
+      .mockImplementationOnce(() => Promise.resolve({ ok: true }))
+      .mockImplementationOnce(() => apiResponse({
+        captureId: 'capture-image-1',
         status: 'processed',
         state: 'added',
         message: 'Added to bndy.',
-      }),
-    }))
+      }))
+    vi.stubGlobal('fetch', mockFetch)
 
     render(<App />)
-    fireEvent.change(screen.getByPlaceholderText(/paste facebook event text/i), { target: { value: 'Test event' } })
-    fireEvent.click(screen.getByRole('button', { name: /interpret text/i }))
+    const file = new File(['poster pixels'], 'poster.png', { type: 'image/png' })
+    fireEvent.drop(screen.getByTestId('dropzone'), { dataTransfer: { files: [file] } })
+    await screen.findByRole('img', { name: /selected gig poster preview/i })
+    fireEvent.change(screen.getByPlaceholderText(/paste a facebook link/i), {
+      target: { value: 'Doors are at 7.30pm' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /send to bndy/i }))
 
-    expect(await screen.findByText('Added to bndy')).toBeInTheDocument()
-    expect(screen.getByText('Added to bndy.')).toBeInTheDocument()
+    await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(3))
+    expect(mockFetch).toHaveBeenNthCalledWith(
+      3,
+      'https://capture.bndy.co.uk/v1/public/captures',
+      expect.objectContaining({
+        body: JSON.stringify({ sharedText: 'Doors are at 7.30pm', media }),
+      }),
+    )
   })
 
-  it('shows Capture API errors', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
-      ok: false,
-      json: () => Promise.resolve({ message: 'Too many submissions. Please try again shortly.' }),
-    }))
+  it('shows a useful API error without clearing the form', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(() => apiResponse({
+      message: 'Too many submissions. Please try again shortly.',
+    }, false)))
 
     render(<App />)
-    fireEvent.change(screen.getByPlaceholderText(/paste facebook event text/i), { target: { value: 'Test event' } })
-    fireEvent.click(screen.getByRole('button', { name: /interpret text/i }))
+    const textarea = screen.getByPlaceholderText(/paste a facebook link/i)
+    fireEvent.change(textarea, { target: { value: 'Test event' } })
+    fireEvent.click(screen.getByRole('button', { name: /send to bndy/i }))
 
     expect(await screen.findByText(/too many submissions/i)).toBeInTheDocument()
+    expect(textarea).toHaveValue('Test event')
+  })
+
+  it('resumes an active submission after refresh', async () => {
+    window.sessionStorage.setItem('bndy.activeCapture.v1', JSON.stringify({
+      captureId: 'capture-resume',
+      startedAt: Date.now(),
+    }))
+    const mockFetch = vi.fn().mockImplementation(() => apiResponse({
+      captureId: 'capture-resume',
+      status: 'processed',
+      state: 'already_exists',
+      message: 'Already in bndy.',
+    }))
+    vi.stubGlobal('fetch', mockFetch)
+
+    render(<App />)
+
+    expect(await screen.findByRole('heading', { name: 'Already on bndy' }, { timeout: 2000 })).toBeInTheDocument()
+    expect(mockFetch).toHaveBeenCalledWith('https://capture.bndy.co.uk/v1/public/captures/capture-resume')
+    expect(window.sessionStorage.getItem('bndy.activeCapture.v1')).toBeNull()
   })
 })

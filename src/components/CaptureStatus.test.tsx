@@ -1,0 +1,54 @@
+import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { describe, expect, it, vi } from 'vitest'
+import { CaptureStatus, type PublicCaptureStatus } from './CaptureStatus'
+
+const processing: PublicCaptureStatus = {
+  captureId: 'capture-123',
+  status: 'processing',
+  state: 'processing',
+  message: 'Processing.',
+}
+
+describe('CaptureStatus', () => {
+  it('shows truthful processing and keeps the reference secondary', () => {
+    render(<CaptureStatus capture={processing} isPolling />)
+
+    expect(screen.getByRole('heading', { name: /bndy is checking it/i })).toBeInTheDocument()
+    expect(screen.getByText(/you can close this page/i)).toBeInTheDocument()
+    expect(screen.getByText('capture-123')).not.toBeVisible()
+  })
+
+  it('shows a resolved gig with a direct bndy link', () => {
+    render(<CaptureStatus capture={{
+      captureId: 'capture-456',
+      status: 'processed',
+      state: 'added',
+      message: 'Added to bndy.',
+      result: {
+        artist: { name: 'The Torrists' },
+        event: {
+          id: 'event-1',
+          date: '2026-09-26',
+          time: '21:00',
+          venue: 'Disley Amalgamated Sports Club',
+          url: 'https://bndy.live/g/event-1',
+        },
+      },
+    }} isPolling={false} />)
+
+    expect(screen.getByRole('heading', { name: 'It’s on bndy' })).toBeInTheDocument()
+    expect(screen.getByText('The Torrists')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /view gig on bndy.live/i })).toHaveAttribute('href', 'https://bndy.live/g/event-1')
+  })
+
+  it('lets a person resume a paused status check', async () => {
+    const user = userEvent.setup()
+    const onCheckAgain = vi.fn()
+    render(<CaptureStatus capture={processing} isPolling={false} pollPaused onCheckAgain={onCheckAgain} />)
+
+    expect(screen.getByText(/taking longer than usual/i)).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /check again/i }))
+    expect(onCheckAgain).toHaveBeenCalledOnce()
+  })
+})
