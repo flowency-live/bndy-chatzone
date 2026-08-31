@@ -8,8 +8,8 @@
   --line: #283652;
   --line-strong: #3b4b6d;
   --text: #f8fafc;
-  --muted: #aab6ca;
-  --quiet: #78869e;
+  --muted: #c7d0df;
+  --quiet: #aab6ca;
   --orange: #ff6b18;
   --orange-light: #ff9858;
   --cyan: #2dd4bf;
@@ -101,7 +101,7 @@ summary:focus-visible {
 .brand {
   display: inline-flex;
   align-items: center;
-  gap: 11px;
+  gap: 9px;
   color: var(--text);
   font-family: 'Inter Tight', system-ui, sans-serif;
   font-size: 1.45rem;
@@ -115,8 +115,17 @@ summary:focus-visible {
   height: 27px;
 }
 
-.brand-dot {
+.brand-wordmark {
+  width: 48px;
+  height: 23px;
+  color: var(--text);
+}
+
+.brand-live {
+  margin-left: -8px;
   color: var(--muted);
+  font-size: 1.25rem;
+  letter-spacing: -0.05em;
 }
 
 .explore-link {
@@ -411,10 +420,18 @@ summary:focus-visible {
   transform: translateY(-1px);
 }
 
-.primary-button:disabled,
+.primary-button:disabled {
+  background: #71442e;
+  box-shadow: none;
+  color: var(--text);
+  cursor: not-allowed;
+}
+
 .secondary-button:disabled,
 .text-button:disabled {
-  opacity: 0.42;
+  border-color: var(--line);
+  background: var(--surface-soft);
+  color: var(--quiet);
   cursor: not-allowed;
 }
 
@@ -489,7 +506,8 @@ summary:focus-visible {
 }
 
 .text-field textarea::placeholder {
-  color: #687791;
+  color: var(--quiet);
+  opacity: 1;
 }
 
 .text-field textarea:focus {
