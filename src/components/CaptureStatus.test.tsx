@@ -56,8 +56,29 @@ describe('CaptureStatus', () => {
     }} isPolling={false} />)
 
     expect(screen.getByRole('heading', { name: 'It’s on bndy' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Here’s what we found' })).toBeInTheDocument()
     expect(screen.getByText('The Torrists')).toBeInTheDocument()
+    expect(screen.getByText('Disley Amalgamated Sports Club')).toBeInTheDocument()
+    expect(screen.getByText('Saturday, 26 September 2026')).toBeInTheDocument()
+    expect(screen.getByText('21:00')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /view gig on bndy.live/i })).toHaveAttribute('href', 'https://bndy.live/g/event-1')
+  })
+
+  it('makes a partial Capture result explicit instead of hiding it', () => {
+    render(<CaptureStatus capture={{
+      captureId: 'capture-partial',
+      status: 'processed',
+      state: 'processed',
+      message: 'BNDY finished checking the submission.',
+      result: {
+        artist: { name: 'The Torrists' },
+      },
+    }} isPolling={false} />)
+
+    expect(screen.getByRole('heading', { name: 'Here’s what we found' })).toBeInTheDocument()
+    expect(screen.getByText('The Torrists')).toBeInTheDocument()
+    expect(screen.getByText(/identified part of your submission/i)).toBeInTheDocument()
+    expect(screen.getAllByText('Not confirmed')).toHaveLength(3)
   })
 
   it('lets a person resume a paused status check', async () => {
@@ -81,6 +102,8 @@ describe('CaptureStatus', () => {
     }} isPolling={false} onSaveFollowUp={onSaveFollowUp} />)
 
     expect(screen.getByText('A human needs to check this one')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Here’s what we found' })).toBeInTheDocument()
+    expect(screen.getAllByText('Not confirmed')).toHaveLength(4)
     expect(screen.getByText(/do not need to send it again/i)).toBeInTheDocument()
     expect(screen.getByText('The artist identity needs a human check.')).toBeInTheDocument()
     await user.type(screen.getByLabelText('Email address'), 'person@example.com')
