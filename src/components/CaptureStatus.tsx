@@ -32,6 +32,7 @@ interface CaptureStatusProps {
   connectionNotice?: string | null
   processingInputKind?: ProcessingInputKind
   onCheckAgain?: () => void
+  onSaveFollowUp?: (method: 'email' | 'whatsapp', value: string) => Promise<void>
   onReset?: () => void
 }
 
@@ -119,9 +120,9 @@ const STATUS_COPY: Record<string, StatusCopy> = {
     tone: 'neutral',
   },
   needs_review: {
-    eyebrow: 'KEPT FOR REVIEW',
-    title: 'This one needs a human check',
-    detail: 'bndy found useful gig details, but will not guess where the evidence is uncertain.',
+    eyebrow: 'WE’VE GOT IT',
+    title: 'A human needs to check this one',
+    detail: 'Your submission is safely kept and you do not need to send it again.',
     tone: 'attention',
   },
   could_not_resolve: {
@@ -186,15 +187,34 @@ export function CaptureStatus({
   connectionNotice,
   processingInputKind = 'unknown',
   onCheckAgain,
+  onSaveFollowUp,
   onReset,
 }: CaptureStatusProps) {
   const copy = STATUS_COPY[capture.state] ?? STATUS_COPY.processed
   const event = capture.result?.event
   const artist = capture.result?.artist
   const working = capture.state === 'processing'
+  const [followUpMethod, setFollowUpMethod] = useState<'email' | 'whatsapp'>('email')
+  const [followUpValue, setFollowUpValue] = useState('')
+  const [followUpState, setFollowUpState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  const [followUpError, setFollowUpError] = useState('')
   const detail = pollPaused
     ? 'This is taking longer than usual. Your submission is safe, and you can check it again here.'
     : copy.detail
+
+  const saveFollowUp = async (event: React.FormEvent) => {
+    event.preventDefault()
+    if (!onSaveFollowUp || !followUpValue.trim()) return
+    setFollowUpState('saving')
+    setFollowUpError('')
+    try {
+      await onSaveFollowUp(followUpMethod, followUpValue.trim())
+      setFollowUpState('saved')
+    } catch (error) {
+      setFollowUpState('error')
+      setFollowUpError(error instanceof Error ? error.message : 'We could not save that contact detail.')
+    }
+  }
 
   return (
     <div className={`capture-status tone-${copy.tone}`} aria-live="polite">
@@ -235,6 +255,44 @@ export function CaptureStatus({
 
       {!event && !working && capture.message && capture.message !== copy.detail && (
         <p className="capture-message">{capture.message}</p>
+      )}
+
+      {capture.state === 'needs_review' && onSaveFollowUp && (
+        <div className="follow-up-card">
+          {followUpState === 'saved' ? (
+            <div className="follow-up-saved" role="status">
+              <strong>We’ll keep you posted.</strong>
+              <span>We will use that {followUpMethod === 'email' ? 'email address' : 'WhatsApp number'} only for this submission.</span>
+            </div>
+          ) : (
+            <form onSubmit={saveFollowUp}>
+              <div className="follow-up-heading">
+                <strong>Want to know what happens?</strong>
+                <span>Leave one contact detail and we’ll update you after the human check.</span>
+              </div>
+              <div className="follow-up-methods" aria-label="How should bndy contact you?">
+                <button type="button" className={followUpMethod === 'email' ? 'active' : ''} onClick={() => setFollowUpMethod('email')}>Email</button>
+                <button type="button" className={followUpMethod === 'whatsapp' ? 'active' : ''} onClick={() => setFollowUpMethod('whatsapp')}>WhatsApp</button>
+              </div>
+              <div className="follow-up-entry">
+                <label className="visually-hidden" htmlFor="follow-up-contact">{followUpMethod === 'email' ? 'Email address' : 'WhatsApp number'}</label>
+                <input
+                  id="follow-up-contact"
+                  type={followUpMethod === 'email' ? 'email' : 'tel'}
+                  inputMode={followUpMethod === 'email' ? 'email' : 'tel'}
+                  autoComplete={followUpMethod === 'email' ? 'email' : 'tel'}
+                  required
+                  value={followUpValue}
+                  onChange={(event) => setFollowUpValue(event.target.value)}
+                  placeholder={followUpMethod === 'email' ? 'you@example.com' : '07… or +44…'}
+                />
+                <button type="submit" disabled={followUpState === 'saving'}>{followUpState === 'saving' ? 'Saving…' : 'Keep me posted'}</button>
+              </div>
+              <p className="follow-up-privacy">Only for this submission. No account, no marketing.</p>
+              {followUpState === 'error' && <p className="follow-up-error" role="alert">{followUpError}</p>}
+            </form>
+          )}
+        </div>
       )}
 
       <div className="result-actions">

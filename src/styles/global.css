@@ -673,6 +673,105 @@ summary:focus-visible {
   font-size: 0.8rem;
 }
 
+.follow-up-card {
+  margin-top: 18px;
+  padding: 18px;
+  border: 1px solid rgba(255, 181, 71, 0.34);
+  border-radius: 16px;
+  background: linear-gradient(145deg, rgba(255, 181, 71, 0.12), rgba(255, 255, 255, 0.035));
+}
+
+.follow-up-heading {
+  display: grid;
+  gap: 4px;
+}
+
+.follow-up-heading strong,
+.follow-up-saved strong {
+  color: var(--text);
+  font-size: 1rem;
+}
+
+.follow-up-heading span,
+.follow-up-saved span {
+  color: var(--muted);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.follow-up-methods {
+  display: inline-flex;
+  gap: 4px;
+  margin-top: 14px;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.16);
+}
+
+.follow-up-methods button {
+  padding: 7px 11px;
+  border: 0;
+  border-radius: 7px;
+  color: var(--muted);
+  background: transparent;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.follow-up-methods button.active {
+  color: #17110a;
+  background: var(--warning);
+}
+
+.follow-up-entry {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.follow-up-entry input {
+  min-width: 0;
+  padding: 11px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  color: var(--text);
+  background: rgba(7, 9, 13, 0.72);
+  font: inherit;
+}
+
+.follow-up-entry button {
+  padding: 0 14px;
+  border: 0;
+  border-radius: 10px;
+  color: #17110a;
+  background: var(--warning);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.follow-up-entry button:disabled { opacity: 0.65; cursor: wait; }
+
+.follow-up-privacy,
+.follow-up-error {
+  margin: 8px 0 0;
+  font-size: 0.75rem;
+}
+
+.follow-up-privacy { color: var(--muted); }
+.follow-up-error { color: #ffb4a9; }
+.follow-up-saved { display: grid; gap: 4px; }
+
+@media (max-width: 520px) {
+  .follow-up-entry { grid-template-columns: 1fr; }
+  .follow-up-entry button { min-height: 42px; }
+}
+
 .processing-story {
   position: relative;
   min-height: 84px;
