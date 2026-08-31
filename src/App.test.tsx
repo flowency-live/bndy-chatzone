@@ -152,4 +152,24 @@ describe('App', () => {
     expect(mockFetch).toHaveBeenCalledWith('https://capture.bndy.co.uk/v1/public/captures/capture-resume')
     expect(window.sessionStorage.getItem('bndy.activeCapture.v1')).toBeNull()
   })
+
+  it('keeps a review-needed submission recoverable across refreshes', async () => {
+    window.sessionStorage.setItem('bndy.activeCapture.v1', JSON.stringify({
+      captureId: 'capture-review',
+      startedAt: Date.now(),
+    }))
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(() => apiResponse({
+      captureId: 'capture-review',
+      status: 'failed',
+      state: 'needs_review',
+      message: 'A human needs to check this one.',
+    })))
+
+    render(<App />)
+
+    expect(await screen.findByRole('heading', { name: 'A human needs to check this one' }, { timeout: 2000 })).toBeInTheDocument()
+    expect(JSON.parse(window.sessionStorage.getItem('bndy.activeCapture.v1') || '{}')).toEqual(expect.objectContaining({
+      captureId: 'capture-review',
+    }))
+  })
 })

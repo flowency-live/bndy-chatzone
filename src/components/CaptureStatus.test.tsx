@@ -70,15 +70,22 @@ describe('CaptureStatus', () => {
     expect(onCheckAgain).toHaveBeenCalledOnce()
   })
 
-  it('shows a truthful terminal review state', () => {
+  it('shows a truthful terminal review state and captures optional follow-up', async () => {
+    const user = userEvent.setup()
+    const onSaveFollowUp = vi.fn().mockResolvedValue(undefined)
     render(<CaptureStatus capture={{
       captureId: 'capture-review',
       status: 'failed',
       state: 'needs_review',
       message: 'The artist identity needs a human check.',
-    }} isPolling={false} />)
+    }} isPolling={false} onSaveFollowUp={onSaveFollowUp} />)
 
-    expect(screen.getByText('This one needs a human check')).toBeInTheDocument()
+    expect(screen.getByText('A human needs to check this one')).toBeInTheDocument()
+    expect(screen.getByText(/do not need to send it again/i)).toBeInTheDocument()
     expect(screen.getByText('The artist identity needs a human check.')).toBeInTheDocument()
+    await user.type(screen.getByLabelText('Email address'), 'person@example.com')
+    await user.click(screen.getByRole('button', { name: 'Keep me posted' }))
+    expect(onSaveFollowUp).toHaveBeenCalledWith('email', 'person@example.com')
+    expect(await screen.findByText('We’ll keep you posted.')).toBeInTheDocument()
   })
 })

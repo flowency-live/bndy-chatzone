@@ -130,7 +130,13 @@ function App() {
           setIsPolling(false)
           setIsSubmitting(false)
           setPollPaused(false)
-          forgetActiveCapture()
+          if (data.state === 'needs_review') {
+            const retained = { ...stored, startedAt: Date.now() }
+            window.sessionStorage.setItem(ACTIVE_CAPTURE_KEY, JSON.stringify(retained))
+            activeCaptureRef.current = retained
+          } else {
+            forgetActiveCapture()
+          }
           return
         }
 
@@ -239,6 +245,17 @@ function App() {
     pollForResult(refreshed, 0)
   }
 
+  const handleSaveFollowUp = async (method: 'email' | 'whatsapp', value: string) => {
+    if (!capture) throw new Error('Submission reference is unavailable.')
+    const response = await fetch(`${CAPTURE_API_URL}/v1/public/captures/${capture.captureId}/follow-up`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ method, value, consent: true }),
+    })
+    await jsonResponse<{ saved: true; method: string }>(response)
+    forgetActiveCapture()
+  }
+
   const handleReset = () => {
     clearTimer()
     forgetActiveCapture()
@@ -297,6 +314,7 @@ function App() {
               connectionNotice={connectionNotice}
               processingInputKind={processingInputKind}
               onCheckAgain={handleCheckAgain}
+              onSaveFollowUp={handleSaveFollowUp}
               onReset={handleReset}
             />
           ) : (
