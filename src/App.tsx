@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { BndyWordmark } from './components/BndyWordmark'
 import { SignalDropzone, type SignalSubmission } from './components/SignalDropzone'
-import { CaptureStatus, type PublicCaptureStatus } from './components/CaptureStatus'
+import { CaptureStatus, type ProcessingInputKind, type PublicCaptureStatus } from './components/CaptureStatus'
 
 const CAPTURE_API_URL = 'https://capture.bndy.co.uk'
 const ACTIVE_CAPTURE_KEY = 'bndy.activeCapture.v1'
@@ -18,6 +18,7 @@ const TERMINAL_STATES = new Set([
 interface StoredCapture {
   captureId: string
   startedAt: number
+  inputKind?: ProcessingInputKind
 }
 
 function newClientSubmissionId(): string {
@@ -72,6 +73,7 @@ function App() {
   const [isPolling, setIsPolling] = useState(false)
   const [pollPaused, setPollPaused] = useState(false)
   const [connectionNotice, setConnectionNotice] = useState<string | null>(null)
+  const [processingInputKind, setProcessingInputKind] = useState<ProcessingInputKind>(initialStoredCapture?.inputKind ?? 'unknown')
   const [error, setError] = useState<string | null>(null)
   const timerRef = useRef<number | null>(null)
   const activeCaptureRef = useRef<StoredCapture | null>(null)
@@ -168,6 +170,8 @@ function App() {
   }
 
   const handleSubmit = async (submission: SignalSubmission) => {
+    const inputKind: ProcessingInputKind = submission.base64Content ? 'poster' : 'text'
+    setProcessingInputKind(inputKind)
     setIsSubmitting(true)
     setError(null)
     setConnectionNotice(null)
@@ -216,7 +220,7 @@ function App() {
         return
       }
 
-      const stored = { captureId: created.captureId, startedAt: Date.now() }
+      const stored = { captureId: created.captureId, startedAt: Date.now(), inputKind }
       window.sessionStorage.setItem(ACTIVE_CAPTURE_KEY, JSON.stringify(stored))
       pollForResult(stored)
     } catch (submissionError) {
@@ -243,6 +247,7 @@ function App() {
     setIsSubmitting(false)
     setIsPolling(false)
     setPollPaused(false)
+    setProcessingInputKind('unknown')
     setConnectionNotice(null)
     setError(null)
   }
@@ -290,6 +295,7 @@ function App() {
               isPolling={isPolling}
               pollPaused={pollPaused}
               connectionNotice={connectionNotice}
+              processingInputKind={processingInputKind}
               onCheckAgain={handleCheckAgain}
               onReset={handleReset}
             />
