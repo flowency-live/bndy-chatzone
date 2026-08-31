@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { BndyWordmark } from './components/BndyWordmark'
 import { SignalDropzone, type SignalSubmission } from './components/SignalDropzone'
 import { CaptureStatus, type PublicCaptureStatus } from './components/CaptureStatus'
 
@@ -251,7 +252,8 @@ function App() {
       <header className="brand-bar">
         <a className="brand" href="https://bndy.live" aria-label="bndy.live home">
           <img src="/favicon.svg" alt="" className="brand-mark" />
-          <span>bndy<span className="brand-dot">.live</span></span>
+          <BndyWordmark className="brand-wordmark" />
+          <span className="brand-live">.live</span>
         </a>
         <a className="explore-link" href="https://bndy.live">
           Explore gigs <span aria-hidden="true">↗</span>

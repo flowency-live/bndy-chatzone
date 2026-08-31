@@ -23,6 +23,9 @@ describe('App', () => {
   it('renders the Send to bndy experience', () => {
     render(<App />)
 
+    const brand = screen.getByRole('link', { name: 'bndy.live home' })
+    expect(brand.querySelector('.brand-wordmark path')).toBeInTheDocument()
+    expect(brand).not.toHaveTextContent(/^bndy/)
     expect(screen.getByRole('heading', { name: 'Know about a gig?' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Send a gig to bndy' })).toBeInTheDocument()
     expect(screen.getByText(/poster, screenshot, link or event message/i)).toBeInTheDocument()
