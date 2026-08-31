@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { CaptureStatus, type PublicCaptureStatus } from './CaptureStatus'
@@ -17,6 +17,24 @@ describe('CaptureStatus', () => {
     expect(screen.getByRole('heading', { name: /bndy is checking it/i })).toBeInTheDocument()
     expect(screen.getByText(/you can close this page/i)).toBeInTheDocument()
     expect(screen.getByText('capture-123')).not.toBeVisible()
+  })
+
+
+  it('turns poster processing into a truthful, input-aware story', () => {
+    vi.useFakeTimers()
+    const view = render(<CaptureStatus capture={processing} isPolling processingInputKind="poster" />)
+
+    expect(screen.getByText('Got it. Your poster is safe.')).toBeInTheDocument()
+    act(() => vi.advanceTimersByTime(2300 * 4))
+    expect(screen.getByText('If AI made this poster, AI is now taking it apart. Fair’s fair.')).toBeInTheDocument()
+
+    view.unmount()
+    vi.useRealTimers()
+  })
+
+  it('uses message-specific copy for a text submission', () => {
+    render(<CaptureStatus capture={processing} isPolling processingInputKind="text" />)
+    expect(screen.getByText('Got it. Your message is safe.')).toBeInTheDocument()
   })
 
   it('shows a resolved gig with a direct bndy link', () => {
