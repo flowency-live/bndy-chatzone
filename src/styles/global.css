@@ -828,11 +828,7 @@ summary:focus-visible {
   animation: story-line-in 360ms ease-out both;
 }
 
-.gig-result {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 16px;
-  align-items: center;
+.capture-findings {
   margin-top: 32px;
   padding: 18px;
   border: 1px solid var(--line);
@@ -840,54 +836,58 @@ summary:focus-visible {
   background: var(--surface-soft);
 }
 
-.gig-date-block {
+.capture-findings-heading h3 {
+  margin: 3px 0 0;
+  font-family: 'Inter Tight', system-ui, sans-serif;
+  font-size: 1.15rem;
+}
+
+.capture-findings-heading > p:last-child {
+  margin: 5px 0 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+.capture-findings-list {
   display: grid;
-  width: 58px;
-  height: 64px;
-  place-content: center;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  overflow: hidden;
+  margin: 16px 0 0;
+  border: 1px solid var(--line);
   border-radius: 11px;
-  background: rgb(255 107 24 / 12%);
-  color: var(--orange-light);
-  text-align: center;
+  background: var(--line);
+}
+
+.finding-row {
+  min-width: 0;
+  padding: 11px 12px;
+  background: rgb(9 13 20 / 74%);
+}
+
+.finding-row dt {
+  color: var(--quiet);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.58rem;
+  font-weight: 650;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
 }
 
-.gig-date-block span {
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 0.62rem;
-  font-weight: 600;
-}
-
-.gig-date-block strong {
-  font-family: 'Inter Tight', system-ui, sans-serif;
-  font-size: 1.65rem;
-  line-height: 1;
-}
-
-.gig-result-copy {
-  min-width: 0;
-}
-
-.gig-result-copy h3 {
+.finding-row dd {
   overflow: hidden;
-  margin: 0 0 2px;
-  font-family: 'Inter Tight', system-ui, sans-serif;
-  font-size: 1.2rem;
+  margin: 4px 0 0;
+  color: var(--text);
+  font-size: 0.84rem;
+  font-weight: 700;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.gig-result-copy p {
-  margin: 0;
-  color: var(--text);
-  font-size: 0.86rem;
-}
-
-.gig-result-copy span {
-  display: block;
-  margin-top: 3px;
+.finding-row dd.finding-unconfirmed {
   color: var(--quiet);
-  font-size: 0.73rem;
+  font-weight: 550;
 }
 
 .result-actions {
@@ -1135,13 +1135,12 @@ summary:focus-visible {
     width: 100%;
   }
 
-  .gig-result {
-    gap: 12px;
+  .capture-findings {
     padding: 14px;
   }
 
-  .gig-result-copy h3 {
-    font-size: 1.05rem;
+  .capture-findings-list {
+    grid-template-columns: 1fr;
   }
 
   .site-footer {

@@ -180,6 +180,15 @@ function formatDate(date: string): string {
   }).format(parsed)
 }
 
+function FindingRow({ label, value, confirmed = true }: { label: string; value?: string; confirmed?: boolean }) {
+  return (
+    <div className="finding-row">
+      <dt>{label}</dt>
+      <dd className={confirmed && value ? '' : 'finding-unconfirmed'}>{confirmed && value ? value : 'Not confirmed'}</dd>
+    </div>
+  )
+}
+
 export function CaptureStatus({
   capture,
   isPolling,
@@ -239,18 +248,26 @@ export function CaptureStatus({
 
       {working && isPolling && <ProcessingStory inputKind={processingInputKind} />}
 
-      {event && (
-        <article className="gig-result">
-          <div className="gig-date-block">
-            <span>{new Date(`${event.date}T12:00:00Z`).toLocaleDateString('en-GB', { month: 'short', timeZone: 'UTC' })}</span>
-            <strong>{new Date(`${event.date}T12:00:00Z`).getUTCDate()}</strong>
+      {!working && (
+        <section className="capture-findings" aria-labelledby="capture-findings-title">
+          <div className="capture-findings-heading">
+            <p className="card-kicker">CAPTURE RESULT</p>
+            <h3 id="capture-findings-title">Here’s what we found</h3>
+            <p>
+              {event
+                ? 'These are the gig details bndy matched from your submission.'
+                : artist
+                  ? 'We identified part of your submission, but could not confirm the complete gig.'
+                  : 'We could not safely confirm the gig details from this submission.'}
+            </p>
           </div>
-          <div className="gig-result-copy">
-            {artist?.name && <h3>{artist.name}</h3>}
-            <p>{event.venue}</p>
-            <span>{formatDate(event.date)}{event.time ? ` · ${event.time}` : ''}</span>
-          </div>
-        </article>
+          <dl className="capture-findings-list">
+            <FindingRow label="Artist" value={artist?.name} />
+            <FindingRow label="Venue" value={event?.venue} />
+            <FindingRow label="Date" value={event?.date ? formatDate(event.date) : undefined} />
+            <FindingRow label="Time" value={event?.time} />
+          </dl>
+        </section>
       )}
 
       {!event && !working && capture.message && capture.message !== copy.detail && (
