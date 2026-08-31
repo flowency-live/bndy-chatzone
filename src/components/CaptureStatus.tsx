@@ -1,3 +1,5 @@
+import { useEffect, useState } from 'react'
+
 export interface PublicCaptureStatus {
   captureId: string
   status: string
@@ -28,8 +30,60 @@ interface CaptureStatusProps {
   isPolling: boolean
   pollPaused?: boolean
   connectionNotice?: string | null
+  processingInputKind?: ProcessingInputKind
   onCheckAgain?: () => void
   onReset?: () => void
+}
+
+export type ProcessingInputKind = 'poster' | 'text' | 'unknown'
+
+const PROCESSING_STORIES: Record<ProcessingInputKind, string[]> = {
+  poster: [
+    'Got it. Your poster is safe.',
+    'Reading the names, place and date…',
+    'Checking whether this gig is already on bndy…',
+    'Untangling the internet’s finest poster typography…',
+    'If AI made this poster, AI is now taking it apart. Fair’s fair.',
+    'Still checking. Your submission is safe.',
+  ],
+  text: [
+    'Got it. Your message is safe.',
+    'Finding the artist, venue and date…',
+    'Checking whether this gig is already on bndy…',
+    'Cross-checking the details, not guessing…',
+    'Still checking. Your submission is safe.',
+  ],
+  unknown: [
+    'Got it. Your submission is safe.',
+    'Finding the artist, venue and date…',
+    'Checking whether this gig is already on bndy…',
+    'Cross-checking the details, not guessing…',
+    'Still checking. Your submission is safe.',
+  ],
+}
+
+const STORY_INTERVAL_MS = 2300
+
+function ProcessingStory({ inputKind }: { inputKind: ProcessingInputKind }) {
+  const [step, setStep] = useState(0)
+  const messages = PROCESSING_STORIES[inputKind]
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setStep((current) => current < messages.length - 1 ? current + 1 : Math.min(3, messages.length - 1))
+    }, STORY_INTERVAL_MS)
+    return () => window.clearInterval(timer)
+  }, [inputKind, messages.length])
+
+  return (
+    <div className="processing-story">
+      <span className="processing-story-label" aria-hidden="true"><i /> LIVE CHECK</span>
+      <span className="processing-story-line" aria-hidden="true" key={`${inputKind}-${step}`}>
+        {messages[step]}
+      </span>
+      <span className="visually-hidden">Your submission is safely received and being checked.</span>
+    </div>
+  )
 }
 
 interface StatusCopy {
@@ -130,6 +184,7 @@ export function CaptureStatus({
   isPolling,
   pollPaused = false,
   connectionNotice,
+  processingInputKind = 'unknown',
   onCheckAgain,
   onReset,
 }: CaptureStatusProps) {
@@ -161,6 +216,8 @@ export function CaptureStatus({
       )}
 
       {connectionNotice && <p className="connection-notice">{connectionNotice}</p>}
+
+      {working && isPolling && <ProcessingStory inputKind={processingInputKind} />}
 
       {event && (
         <article className="gig-result">
