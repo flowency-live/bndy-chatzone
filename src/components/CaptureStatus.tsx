@@ -26,6 +26,13 @@ export interface PublicCaptureStatus {
     event?: PublicCaptureEvent
     events?: PublicCaptureEvent[]
   }
+  clarification?: {
+    type: 'confirm_new_artist'
+    artistName: string
+    location: string
+    prompt: string
+  }
+  requestArtistLinks?: boolean
 }
 
 interface CaptureStatusProps {
@@ -36,6 +43,8 @@ interface CaptureStatusProps {
   processingInputKind?: ProcessingInputKind
   onCheckAgain?: () => void
   onSaveFollowUp?: (method: 'email' | 'whatsapp', value: string) => Promise<void>
+  onConfirmClarification?: () => Promise<void>
+  onSaveArtistLinks?: (urls: string[]) => Promise<void>
   onReset?: () => void
 }
 
@@ -200,6 +209,8 @@ export function CaptureStatus({
   processingInputKind = 'unknown',
   onCheckAgain,
   onSaveFollowUp,
+  onConfirmClarification,
+  onSaveArtistLinks,
   onReset,
 }: CaptureStatusProps) {
   const event = capture.result?.event ?? (capture.result?.events?.length === 1 ? capture.result.events[0] : undefined)
@@ -215,6 +226,10 @@ export function CaptureStatus({
   const [followUpValue, setFollowUpValue] = useState('')
   const [followUpState, setFollowUpState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   const [followUpError, setFollowUpError] = useState('')
+  const [clarificationState, setClarificationState] = useState<'idle' | 'saving' | 'error'>('idle')
+  const [artistLinks, setArtistLinks] = useState('')
+  const [artistLinksState, setArtistLinksState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  const [artistLinksError, setArtistLinksError] = useState('')
   const detail = pollPaused
     ? 'This is taking longer than usual. Your submission is safe, and you can check it again here.'
     : copy.detail
@@ -230,6 +245,32 @@ export function CaptureStatus({
     } catch (error) {
       setFollowUpState('error')
       setFollowUpError(error instanceof Error ? error.message : 'We could not save that contact detail.')
+    }
+  }
+
+  const confirmClarification = async () => {
+    if (!onConfirmClarification) return
+    setClarificationState('saving')
+    try {
+      await onConfirmClarification()
+    } catch {
+      setClarificationState('error')
+    }
+  }
+
+  const saveArtistLinks = async (event: React.FormEvent) => {
+    event.preventDefault()
+    if (!onSaveArtistLinks) return
+    const urls = artistLinks.split(/[\n,]+/).map(value => value.trim()).filter(Boolean)
+    if (!urls.length) return
+    setArtistLinksState('saving')
+    setArtistLinksError('')
+    try {
+      await onSaveArtistLinks(urls)
+      setArtistLinksState('saved')
+    } catch (error) {
+      setArtistLinksState('error')
+      setArtistLinksError(error instanceof Error ? error.message : 'We could not save those links.')
     }
   }
 
@@ -308,7 +349,53 @@ export function CaptureStatus({
         <p className="capture-message">{capture.message}</p>
       )}
 
-      {capture.state === 'needs_review' && onSaveFollowUp && (
+      {capture.state === 'needs_review' && capture.clarification?.type === 'confirm_new_artist' && onConfirmClarification && (
+        <div className="follow-up-card clarification-card">
+          <div className="follow-up-heading">
+            <strong>Quick identity check</strong>
+            <span>{capture.clarification.prompt}</span>
+          </div>
+          <button className="clarification-confirm" type="button" onClick={confirmClarification} disabled={clarificationState === 'saving'}>
+            {clarificationState === 'saving' ? 'Confirming…' : `Yes, this is a different ${capture.clarification.location} artist`}
+          </button>
+          <p className="follow-up-privacy">We will use that confirmation to create the correct artist, then continue this submission.</p>
+          {clarificationState === 'error' && <p className="follow-up-error" role="alert">We could not save that confirmation. Please try again.</p>}
+        </div>
+      )}
+
+      {capture.requestArtistLinks && artist?.action === 'created' && onSaveArtistLinks && (
+        <div className="follow-up-card artist-links-card">
+          {artistLinksState === 'saved' ? (
+            <div className="follow-up-saved" role="status">
+              <strong>Thanks, we’ve got the links.</strong>
+              <span>They will be added to {artist.name} without changing the gigs you just submitted.</span>
+            </div>
+          ) : (
+            <form onSubmit={saveArtistLinks}>
+              <div className="follow-up-heading">
+                <strong>Know this artist?</strong>
+                <span>Facebook is not required. If you have their website, Instagram, YouTube or another official profile, add it here.</span>
+              </div>
+              <div className="artist-links-entry">
+                <label className="visually-hidden" htmlFor="artist-profile-links">Artist website or social profile URLs</label>
+                <textarea
+                  id="artist-profile-links"
+                  rows={2}
+                  value={artistLinks}
+                  onChange={(event) => setArtistLinks(event.target.value)}
+                  placeholder="https://instagram.com/…"
+                  required
+                />
+                <button type="submit" disabled={artistLinksState === 'saving'}>{artistLinksState === 'saving' ? 'Saving…' : 'Add links'}</button>
+              </div>
+              <p className="follow-up-privacy">Optional. One link per line, up to five.</p>
+              {artistLinksState === 'error' && <p className="follow-up-error" role="alert">{artistLinksError}</p>}
+            </form>
+          )}
+        </div>
+      )}
+
+      {capture.state === 'needs_review' && !capture.clarification && onSaveFollowUp && (
         <div className="follow-up-card">
           {followUpState === 'saved' ? (
             <div className="follow-up-saved" role="status">

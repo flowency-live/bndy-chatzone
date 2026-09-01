@@ -136,4 +136,49 @@ describe('CaptureStatus', () => {
     expect(onSaveFollowUp).toHaveBeenCalledWith('email', 'person@example.com')
     expect(await screen.findByText('We’ll keep you posted.')).toBeInTheDocument()
   })
+
+  it('asks the submitter to confirm a weak same-name location collision', async () => {
+    const user = userEvent.setup()
+    const onConfirmClarification = vi.fn().mockResolvedValue(undefined)
+    render(<CaptureStatus capture={{
+      captureId: 'capture-collision',
+      status: 'failed',
+      state: 'needs_review',
+      message: 'BNDY found another artist with this name.',
+      result: { artist: { name: 'One For The Road' } },
+      clarification: {
+        type: 'confirm_new_artist',
+        artistName: 'One For The Road',
+        location: 'Northwich, Cheshire',
+        prompt: 'Is this a different artist called One For The Road, based in Northwich, Cheshire?',
+      },
+    }} isPolling={false} onConfirmClarification={onConfirmClarification} />)
+
+    expect(screen.getByText('Quick identity check')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /yes, this is a different northwich, cheshire artist/i }))
+    expect(onConfirmClarification).toHaveBeenCalledOnce()
+  })
+
+  it('asks for optional profile links after creating a new artist', async () => {
+    const user = userEvent.setup()
+    const onSaveArtistLinks = vi.fn().mockResolvedValue(undefined)
+    render(<CaptureStatus capture={{
+      captureId: 'capture-new-artist',
+      status: 'processed',
+      state: 'added',
+      message: '6 gigs added to bndy.',
+      requestArtistLinks: true,
+      result: {
+        artist: { id: 'artist-cheshire', name: 'One For The Road', action: 'created' },
+        events: [{ id: 'gig-1', date: '2026-10-03', time: '21:00', venue: 'The Lion Hotel', url: 'https://bndy.live/g/gig-1' }],
+      },
+    }} isPolling={false} onSaveArtistLinks={onSaveArtistLinks} />)
+
+    expect(screen.getByText('Know this artist?')).toBeInTheDocument()
+    expect(screen.getByText(/Facebook is not required/i)).toBeInTheDocument()
+    await user.type(screen.getByLabelText('Artist website or social profile URLs'), 'https://instagram.com/onefortheroad')
+    await user.click(screen.getByRole('button', { name: 'Add links' }))
+    expect(onSaveArtistLinks).toHaveBeenCalledWith(['https://instagram.com/onefortheroad'])
+    expect(await screen.findByText('Thanks, we’ve got the links.')).toBeInTheDocument()
+  })
 })
