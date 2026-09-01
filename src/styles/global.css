@@ -890,6 +890,58 @@ summary:focus-visible {
   font-weight: 550;
 }
 
+.capture-findings-artist {
+  grid-template-columns: 1fr;
+}
+
+.capture-gig-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.capture-gig-row {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: rgb(9 13 20 / 74%);
+}
+
+.capture-gig-row > div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.capture-gig-date,
+.capture-gig-meta {
+  color: var(--quiet);
+  font-size: 0.7rem;
+}
+
+.capture-gig-row strong {
+  overflow: hidden;
+  font-size: 0.86rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.capture-gig-row a {
+  flex: 0 0 auto;
+  color: var(--cyan);
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.capture-gig-row a:hover {
+  text-decoration: underline;
+}
+
 .result-actions {
   display: flex;
   gap: 10px;
@@ -1141,6 +1193,10 @@ summary:focus-visible {
 
   .capture-findings-list {
     grid-template-columns: 1fr;
+  }
+
+  .capture-gig-row {
+    align-items: flex-start;
   }
 
   .site-footer {
