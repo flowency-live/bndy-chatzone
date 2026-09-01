@@ -1,5 +1,15 @@
 import { useEffect, useState } from 'react'
 
+interface PublicCaptureEvent {
+  id: string
+  date: string
+  time: string
+  venue: string
+  action?: 'created' | 'existing' | string
+  venueAction?: string
+  url: string
+}
+
 export interface PublicCaptureStatus {
   captureId: string
   status: string
@@ -13,15 +23,8 @@ export interface PublicCaptureStatus {
       action?: string
       id?: string
     }
-    event?: {
-      id: string
-      date: string
-      time: string
-      venue: string
-      action?: 'created' | 'existing' | string
-      venueAction?: string
-      url: string
-    }
+    event?: PublicCaptureEvent
+    events?: PublicCaptureEvent[]
   }
 }
 
@@ -199,8 +202,13 @@ export function CaptureStatus({
   onSaveFollowUp,
   onReset,
 }: CaptureStatusProps) {
-  const copy = STATUS_COPY[capture.state] ?? STATUS_COPY.processed
-  const event = capture.result?.event
+  const event = capture.result?.event ?? (capture.result?.events?.length === 1 ? capture.result.events[0] : undefined)
+  const events = capture.result?.events?.length ? capture.result.events : event ? [event] : []
+  const multipleEvents = events.length > 1
+  const baseCopy = STATUS_COPY[capture.state] ?? STATUS_COPY.processed
+  const copy = capture.state === 'added' && multipleEvents
+    ? { ...baseCopy, eyebrow: 'GIGS ADDED', title: 'They’re on bndy' }
+    : baseCopy
   const artist = capture.result?.artist
   const working = capture.state === 'processing'
   const [followUpMethod, setFollowUpMethod] = useState<'email' | 'whatsapp'>('email')
@@ -254,19 +262,45 @@ export function CaptureStatus({
             <p className="card-kicker">CAPTURE RESULT</p>
             <h3 id="capture-findings-title">Here’s what we found</h3>
             <p>
-              {event
+              {multipleEvents
+                ? `These are the ${events.length} gigs bndy matched from your submission.`
+                : event
                 ? 'These are the gig details bndy matched from your submission.'
                 : artist
                   ? 'We identified part of your submission, but could not confirm the complete gig.'
                   : 'We could not safely confirm the gig details from this submission.'}
             </p>
           </div>
-          <dl className="capture-findings-list">
-            <FindingRow label="Artist" value={artist?.name} />
-            <FindingRow label="Venue" value={event?.venue} />
-            <FindingRow label="Date" value={event?.date ? formatDate(event.date) : undefined} />
-            <FindingRow label="Time" value={event?.time} />
-          </dl>
+          {multipleEvents ? (
+            <>
+              <dl className="capture-findings-list capture-findings-artist">
+                <FindingRow label="Artist" value={artist?.name} />
+              </dl>
+              <div className="capture-gig-list">
+                {events.map((gig) => (
+                  <article className="capture-gig-row" key={gig.id}>
+                    <div>
+                      <span className="capture-gig-date">{formatDate(gig.date)}</span>
+                      <strong>{gig.venue}</strong>
+                      <span className="capture-gig-meta">
+                        {gig.time} · {gig.action === 'existing' ? 'Already listed' : 'Added'}
+                      </span>
+                    </div>
+                    <a href={gig.url} target="_blank" rel="noreferrer" aria-label={`View ${gig.venue} gig on bndy.live`}>
+                      View gig <span aria-hidden="true">↗</span>
+                    </a>
+                  </article>
+                ))}
+              </div>
+            </>
+          ) : (
+            <dl className="capture-findings-list">
+              <FindingRow label="Artist" value={artist?.name} />
+              <FindingRow label="Venue" value={event?.venue} />
+              <FindingRow label="Date" value={event?.date ? formatDate(event.date) : undefined} />
+              <FindingRow label="Time" value={event?.time} />
+            </dl>
+          )}
         </section>
       )}
 
@@ -322,7 +356,7 @@ export function CaptureStatus({
           <button type="button" className="primary-button" onClick={onCheckAgain}>Check again</button>
         )}
         {!working && onReset && (
-          <button type="button" className={event ? 'secondary-button' : 'primary-button'} onClick={onReset}>
+          <button type="button" className={events.length ? 'secondary-button' : 'primary-button'} onClick={onReset}>
             Send another
           </button>
         )}
