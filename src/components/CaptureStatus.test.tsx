@@ -81,6 +81,31 @@ describe('CaptureStatus', () => {
     expect(screen.getAllByText('Not confirmed')).toHaveLength(3)
   })
 
+  it('shows every gig returned from a multi-date poster', () => {
+    render(<CaptureStatus capture={{
+      captureId: 'capture-gig-list',
+      status: 'processed',
+      state: 'added',
+      message: '3 gigs added to bndy.',
+      result: {
+        artist: { name: 'One for the Road' },
+        events: [
+          { id: 'gig-1', date: '2026-10-03', time: '21:00', venue: 'The Lion Hotel', action: 'created', url: 'https://bndy.live/g/gig-1' },
+          { id: 'gig-2', date: '2026-11-15', time: '19:00', venue: 'Lambs Wharf', action: 'existing', url: 'https://bndy.live/g/gig-2' },
+          { id: 'gig-3', date: '2026-12-19', time: '21:00', venue: 'The Red Lion', action: 'created', url: 'https://bndy.live/g/gig-3' },
+        ],
+      },
+    }} isPolling={false} />)
+
+    expect(screen.getByRole('heading', { name: 'They’re on bndy' })).toBeInTheDocument()
+    expect(screen.getByText('One for the Road')).toBeInTheDocument()
+    expect(screen.getByText('The Lion Hotel')).toBeInTheDocument()
+    expect(screen.getByText('Lambs Wharf')).toBeInTheDocument()
+    expect(screen.getByText('The Red Lion')).toBeInTheDocument()
+    expect(screen.getAllByRole('link', { name: /gig on bndy.live/i })).toHaveLength(3)
+    expect(screen.getByText(/Already listed/)).toBeInTheDocument()
+  })
+
   it('lets a person resume a paused status check', async () => {
     const user = userEvent.setup()
     const onCheckAgain = vi.fn()
