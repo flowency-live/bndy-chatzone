@@ -256,6 +256,30 @@ function App() {
     forgetActiveCapture()
   }
 
+  const handleConfirmClarification = async () => {
+    if (!capture) throw new Error('Submission reference is unavailable.')
+    const response = await fetch(`${CAPTURE_API_URL}/v1/public/captures/${capture.captureId}/clarification`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'confirm_new_artist', confirmed: true }),
+    })
+    const updated = await jsonResponse<PublicCaptureStatus>(response)
+    setCapture(updated)
+    const stored = { captureId: capture.captureId, startedAt: Date.now(), inputKind: processingInputKind }
+    window.sessionStorage.setItem(ACTIVE_CAPTURE_KEY, JSON.stringify(stored))
+    pollForResult(stored, 0)
+  }
+
+  const handleSaveArtistLinks = async (urls: string[]) => {
+    if (!capture) throw new Error('Submission reference is unavailable.')
+    const response = await fetch(`${CAPTURE_API_URL}/v1/public/captures/${capture.captureId}/artist-links`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ urls }),
+    })
+    await jsonResponse<{ saved: true; count: number }>(response)
+  }
+
   const handleReset = () => {
     clearTimer()
     forgetActiveCapture()
@@ -315,6 +339,8 @@ function App() {
               processingInputKind={processingInputKind}
               onCheckAgain={handleCheckAgain}
               onSaveFollowUp={handleSaveFollowUp}
+              onConfirmClarification={handleConfirmClarification}
+              onSaveArtistLinks={handleSaveArtistLinks}
               onReset={handleReset}
             />
           ) : (

@@ -757,6 +757,53 @@ summary:focus-visible {
 
 .follow-up-entry button:disabled { opacity: 0.65; cursor: wait; }
 
+.clarification-confirm {
+  margin-top: 14px;
+  padding: 11px 14px;
+  border: 0;
+  border-radius: 10px;
+  color: #17110a;
+  background: var(--warning);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.clarification-confirm:disabled { opacity: 0.65; cursor: wait; }
+
+.artist-links-entry {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.artist-links-entry textarea {
+  min-width: 0;
+  resize: vertical;
+  padding: 11px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  color: var(--text);
+  background: rgba(7, 9, 13, 0.72);
+  font: inherit;
+}
+
+.artist-links-entry button {
+  padding: 0 14px;
+  border: 0;
+  border-radius: 10px;
+  color: #17110a;
+  background: var(--warning);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.artist-links-entry button:disabled { opacity: 0.65; cursor: wait; }
+
 .follow-up-privacy,
 .follow-up-error {
   margin: 8px 0 0;
@@ -770,6 +817,8 @@ summary:focus-visible {
 @media (max-width: 520px) {
   .follow-up-entry { grid-template-columns: 1fr; }
   .follow-up-entry button { min-height: 42px; }
+  .artist-links-entry { grid-template-columns: 1fr; }
+  .artist-links-entry button { min-height: 42px; }
 }
 
 .processing-story {
